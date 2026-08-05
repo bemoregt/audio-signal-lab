@@ -36,6 +36,9 @@ struct WaterfallSceneView: NSViewRepresentable {
     var colormap: Colormap = .turboLike
     var backgroundColorOption: BackgroundColorOption = .black
     var cameraViewpoint: CameraViewpoint = .standard
+    // Hands the created SCNView out to the caller (AppViewModel) so it can be recorded via
+    // `SCNView.snapshot()` — the view otherwise never escapes this NSViewRepresentable.
+    var onCreateView: ((SCNView) -> Void)? = nil
 
     func makeCoordinator() -> Coordinator {
         Coordinator(history: history, colormap: colormap)
@@ -56,11 +59,13 @@ struct WaterfallSceneView: NSViewRepresentable {
         view.onDrag = { [weak coordinator = context.coordinator] deltaX, deltaY in
             coordinator?.orbit(deltaX: Float(deltaX), deltaY: Float(deltaY))
         }
+        onCreateView?(view)
         return view
     }
 
     func updateNSView(_ nsView: SCNView, context: Context) {
         context.coordinator.colormap = colormap
+        context.coordinator.backgroundNSColor = backgroundColorOption.color
         nsView.backgroundColor = backgroundColorOption.color
         if context.coordinator.appliedViewpoint != cameraViewpoint {
             context.coordinator.applyViewpoint(cameraViewpoint)
@@ -69,6 +74,10 @@ struct WaterfallSceneView: NSViewRepresentable {
 
     final class Coordinator: NSObject, SCNSceneRendererDelegate {
         var colormap: Colormap
+        // The fill quad beneath each line is painted to match this, so it occludes rows
+        // behind it (real depth-buffer hiding) without reading as a visible filled surface —
+        // it blends into the backdrop instead, keeping the amesh wireframe look intact.
+        var backgroundNSColor: NSColor = BackgroundColorOption.black.color
         let scene = SCNScene()
 
         private let history: SpectrumHistory
@@ -113,7 +122,6 @@ struct WaterfallSceneView: NSViewRepresentable {
         // The line sits exactly on the fill's top edge, so it's lifted a hair toward the
         // camera in Y to avoid z-fighting with the opaque fill quad directly beneath it.
         private let lineTopLift: Float = 0.015
-        private let fillShadeFactor: Float = 0.35
 
         private let rowSegmentCount: Int
         private var totalSegmentCount: Int { rowSegmentCount }
@@ -179,6 +187,13 @@ struct WaterfallSceneView: NSViewRepresentable {
             updateCameraTransform()
         }
 
+        private static func rgbaComponents(of color: NSColor) -> (Float, Float, Float, Float) {
+            guard let converted = color.usingColorSpace(.deviceRGB) else { return (0, 0, 0, 1) }
+            var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+            converted.getRed(&r, green: &g, blue: &b, alpha: &a)
+            return (Float(r), Float(g), Float(b), Float(a))
+        }
+
         /// Topology for a flat list of independent quads (4 vertices, 2 triangles each) —
         /// one quad per line segment along the frequency axis. amesh-authentic: only row
         /// (frequency) lines, no depth-direction cross lines, stacked receding into the screen.
@@ -212,6 +227,7 @@ struct WaterfallSceneView: NSViewRepresentable {
             // not recency and not amplitude. Low frequency = red (colormap value 1), high
             // frequency = blue (colormap value 0).
             let binColors = (0..<binCount).map { colormap.rgba(for: 1 - Float($0) / Float(binCount - 1)) }
+            let bgColor = Coordinator.rgbaComponents(of: backgroundNSColor)
 
             for t in 0..<timeSteps {
                 let row = rows[t]
@@ -265,13 +281,12 @@ struct WaterfallSceneView: NSViewRepresentable {
                     ], [ca, ca, cb, cb], colorBuffer: &lineColors)
 
                     // Opaque fill beneath the line, from the row's baseline up to the curve —
-                    // this is what actually blocks whatever lies behind it, so a tall nearby
-                    // peak hides the rows behind it instead of leaving them visible in the gaps.
+                    // painted to match the background so it reads as empty space, but it's
+                    // real depth-tested geometry, so a tall nearby peak still hides whatever
+                    // row lies behind it instead of leaving it visible in the gaps.
                     let aBase = SIMD3<Float>(a.x, 0, a.z)
                     let bBase = SIMD3<Float>(b2.x, 0, b2.z)
-                    let shadedA = (ca.0 * fillShadeFactor, ca.1 * fillShadeFactor, ca.2 * fillShadeFactor, ca.3)
-                    let shadedB = (cb.0 * fillShadeFactor, cb.1 * fillShadeFactor, cb.2 * fillShadeFactor, cb.3)
-                    write(&fillPositions, segmentIndex, [aBase, a, b2, bBase], [shadedA, shadedA, shadedB, shadedB], colorBuffer: &fillColors)
+                    write(&fillPositions, segmentIndex, [aBase, a, b2, bBase], [bgColor, bgColor, bgColor, bgColor], colorBuffer: &fillColors)
 
                     segmentIndex += 1
                 }

@@ -37,6 +37,12 @@ struct ContentView: View {
                     viewModel.isRunning ? viewModel.stop() : viewModel.start()
                 }
 
+                Button(viewModel.isRecording ? "Stop Recording" : "● Record") {
+                    viewModel.isRecording ? viewModel.stopRecording() : viewModel.startRecording()
+                }
+                .disabled(!viewModel.isRunning)
+                .foregroundStyle(viewModel.isRecording ? .red : .primary)
+
                 Divider().frame(height: 20)
 
                 Picker("Colormap", selection: $viewModel.colormap) {
@@ -79,12 +85,23 @@ struct ContentView: View {
 
             HStack(spacing: 16) {
                 Toggle("Log Scale", isOn: $viewModel.logScaleEnabled)
+                Toggle("Hann Window", isOn: $viewModel.hannWindowEnabled)
+                Toggle("High-Pass Filter", isOn: $viewModel.highPassFilterEnabled)
                 Spacer()
             }
             .padding(8)
 
-            WaterfallSceneView(history: viewModel.history, colormap: viewModel.colormap, backgroundColorOption: viewModel.backgroundColorOption, cameraViewpoint: viewModel.cameraViewpoint)
-                .id(viewModel.resolution)
+            WaterfallSceneView(
+                history: viewModel.history,
+                colormap: viewModel.colormap,
+                backgroundColorOption: viewModel.backgroundColorOption,
+                cameraViewpoint: viewModel.cameraViewpoint,
+                onCreateView: { view in viewModel.sceneView = view }
+            )
+            .id(viewModel.resolution)
+            .overlay(alignment: .topLeading) {
+                optionsOverlay
+            }
         }
         .frame(minWidth: 760, minHeight: 500)
         .fileImporter(isPresented: $showFileImporter, allowedContentTypes: [.audio]) { result in
@@ -95,6 +112,25 @@ struct ContentView: View {
                 viewModel.errorMessage = error.localizedDescription
             }
         }
+    }
+
+    /// Read-only log-style summary of the currently selected controls, overlaid on the 3D
+    /// view itself so it stays visible regardless of which toolbar row is scrolled/hidden.
+    private var optionsOverlay: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("Source: \(viewModel.selectedSource.rawValue)")
+            Text("Colormap: \(viewModel.colormap.rawValue)")
+            Text("Background: \(viewModel.backgroundColorOption.rawValue)")
+            Text("Resolution: \(viewModel.resolution.label)")
+            Text("View: \(viewModel.cameraViewpoint.rawValue)")
+            Text("Log Scale: \(viewModel.logScaleEnabled ? "On" : "Off")")
+            Text("Hann Window: \(viewModel.hannWindowEnabled ? "On" : "Off")")
+            Text("High-Pass Filter: \(viewModel.highPassFilterEnabled ? "On" : "Off")")
+        }
+        .font(.system(size: 11, weight: .medium, design: .monospaced))
+        .foregroundStyle(.white)
+        .padding(8)
+        .allowsHitTesting(false)
     }
 }
 

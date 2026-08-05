@@ -24,6 +24,23 @@ final class SpectrumAnalyzer {
         set { lock.lock(); _logScaleEnabled = newValue; lock.unlock() }
     }
 
+    // When off, the FFT sees the raw (rectangular-windowed) samples — no tapering at the
+    // buffer edges, so expect more spectral leakage (energy smeared into neighboring bins).
+    private var _hannWindowEnabled = true
+    var hannWindowEnabled: Bool {
+        get { lock.lock(); defer { lock.unlock() }; return _hannWindowEnabled }
+        set { lock.lock(); _hannWindowEnabled = newValue; lock.unlock() }
+    }
+
+    // Real high-pass filtering of the audio signal itself (not a display crop), applied
+    // sample-by-sample before it ever reaches the FFT — cuts rumble/DC offset below
+    // highPassCutoffHz so that content doesn't show up in the spectrum at all.
+    private var _highPassFilterEnabled = true
+    var highPassFilterEnabled: Bool {
+        get { lock.lock(); defer { lock.unlock() }; return _highPassFilterEnabled }
+        set { lock.lock(); _highPassFilterEnabled = newValue; lock.unlock() }
+    }
+
     // 4x the previous fftSize (2048->8192) for ~4x real frequency resolution within the
     // 12kHz display range. Trade-off: the FFT window is now ~186ms of audio (was ~46ms),
     // so transient response is a bit less snappy — a fundamental time/frequency-resolution
@@ -41,6 +58,15 @@ final class SpectrumAnalyzer {
     private var runningCeilingDB: Float = -50
     private let dynamicRangeDB: Float = 45
     private let peakDecayPerHop: Float = 0.15
+
+    // One-pole IIR high-pass (a standard "DC-blocking"/rumble filter): y[n] = R * (y[n-1] +
+    // x[n] - x[n-1]). R close to 1 pushes the cutoff down near DC; this fftSize/hopSize-
+    // independent formula only depends on sampleRate, so it's unaffected by the display's
+    // bin count or resolution setting.
+    private let highPassCutoffHz: Float = 40
+    private lazy var highPassCoefficient: Float = 1 - (2 * .pi * highPassCutoffHz / Float(sampleRate))
+    private var highPassPrevInput: Float = 0
+    private var highPassPrevOutput: Float = 0
 
     private let log2n: vDSP_Length
     private let fftSetup: FFTSetup
@@ -64,6 +90,13 @@ final class SpectrumAnalyzer {
         imagp = [Float](repeating: 0, count: fftSize / 2)
     }
 
+    private func highPassFilter(_ sample: Float) -> Float {
+        let output = highPassCoefficient * (highPassPrevOutput + sample - highPassPrevInput)
+        highPassPrevInput = sample
+        highPassPrevOutput = output
+        return output
+    }
+
     deinit {
         vDSP_destroy_fftsetup(fftSetup)
     }
@@ -74,8 +107,9 @@ final class SpectrumAnalyzer {
         let frameLength = Int(buffer.frameLength)
         let samples = UnsafeBufferPointer(start: channelData[0], count: frameLength)
 
+        let highPassFilterEnabled = self.highPassFilterEnabled
         for sample in samples {
-            sampleRing[ringWriteIndex] = sample
+            sampleRing[ringWriteIndex] = highPassFilterEnabled ? highPassFilter(sample) : sample
             ringWriteIndex = (ringWriteIndex + 1) % fftSize
             samplesAccumulated += 1
             if samplesAccumulated >= hopSize {
@@ -101,7 +135,11 @@ final class SpectrumAnalyzer {
         }
 
         var windowed = [Float](repeating: 0, count: fftSize)
-        vDSP_vmul(linear, 1, window, 1, &windowed, 1, vDSP_Length(fftSize))
+        if hannWindowEnabled {
+            vDSP_vmul(linear, 1, window, 1, &windowed, 1, vDSP_Length(fftSize))
+        } else {
+            windowed = linear
+        }
 
         var splitComplex = DSPSplitComplex(realp: &realp, imagp: &imagp)
         windowed.withUnsafeBufferPointer { ptr in

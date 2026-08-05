@@ -23,7 +23,9 @@ Swift + SwiftUI + SceneKit + Accelerate(vDSP)로 작성되었으며, Apple Silic
 - **배경색 선택**: 검정 / 진보라 / 백색 / 진녹색 / 암적색
 - **스펙트럼 해상도 선택**: Low(32) ~ Ultra(512) 빈(bin) 개수 중 선택
 - **로그 스케일** 켜고 끄기
+- **Hann Window / High-Pass Filter** 켜고 끄기 (FFT 전처리 비교용)
 - **자동 게인(AGC)**: 입력 소스의 절대적인 음량 차이와 무관하게 색상·높이 범위가 자동으로 맞춰짐
+- **화면+오디오 동시 녹화**: Record 버튼으로 워터폴 3D 화면과 실시간 오디오를 하나의 .mov 파일로 저장 (AVAssetWriter 기반)
 
 ## 요구 사항
 
@@ -56,6 +58,7 @@ xcodebuild -project AudioWaterfall.xcodeproj -scheme AudioWaterfall build
 | `Colormap.swift` | 진폭 → RGB 슈도컬러 매핑 |
 | `WaterfallSceneView.swift` | SceneKit 기반 3D 와이어프레임 메시 렌더링, 마우스 조작(회전/줌) |
 | `CameraViewpoint.swift` | View 콤보박스용 카메라 시점 프리셋(yaw/pitch/거리) 7종 |
+| `WaterfallRecorder.swift` | SCNView 스냅샷 + 실시간 오디오를 AVAssetWriter로 .mov에 녹화 |
 | `AppViewModel.swift` | 오디오 소스 전환, 상태 관리, UI와 분석 파이프라인 연결 |
 | `ContentView.swift` | SwiftUI 툴바 및 메인 화면 |
 
