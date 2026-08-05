@@ -19,6 +19,7 @@ Swift + SwiftUI + SceneKit + Accelerate(vDSP)로 작성되었으며, Apple Silic
   - 주파수축 방향 선(가로선)만 표시하는 amesh 스타일의 클래식 룩
   - 앞쪽(최신) 그래프가 뒤쪽(과거) 그래프를 가리는 입체적인 산맥 형태
 - **View 콤보박스로 카메라 시점 선택**: Default, Cinematic, Close-Up, Top-Down, Side Profile, Low Angle, Wide Overview — 7가지 프리셋 (거리/줌 포함)
+- **Display 콤보박스로 3D 워터폴 / 2D 스펙트로그램 전환**: 전통적인 2D 스펙트로그램(시간=가로축, 주파수=세로축, 진폭=색상)으로도 볼 수 있음. 2D 뷰는 3D 워터폴(32단계)과 별도로 시간축 512단계짜리 전용 이력 버퍼를 사용해 훨씬 촘촘하게 표시됨 (vDSP로 픽셀 생성을 가속)
 - **5가지 슈도컬러 컬러맵**: Turbo, Grayscale, Purple(Plasma 스타일), Fire(Inferno 스타일), Viridis
 - **배경색 선택**: 검정 / 진보라 / 백색 / 진녹색 / 암적색
 - **스펙트럼 해상도 선택**: Low(32) ~ Ultra(512) 빈(bin) 개수 중 선택
@@ -57,6 +58,7 @@ xcodebuild -project AudioWaterfall.xcodeproj -scheme AudioWaterfall build
 | `SpectrumHistory.swift` | 시간축 스펙트럼 이력을 담는 링 버퍼 |
 | `Colormap.swift` | 진폭 → RGB 슈도컬러 매핑 |
 | `WaterfallSceneView.swift` | SceneKit 기반 3D 와이어프레임 메시 렌더링, 마우스 조작(회전/줌) |
+| `SpectrogramView.swift` | 같은 데이터를 2D 스펙트로그램(시간×주파수, 진폭=색상)으로 렌더링 |
 | `CameraViewpoint.swift` | View 콤보박스용 카메라 시점 프리셋(yaw/pitch/거리) 7종 |
 | `WaterfallRecorder.swift` | SCNView 스냅샷 + 실시간 오디오를 AVAssetWriter로 .mov에 녹화 |
 | `AppViewModel.swift` | 오디오 소스 전환, 상태 관리, UI와 분석 파이프라인 연결 |

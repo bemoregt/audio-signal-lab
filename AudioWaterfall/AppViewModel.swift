@@ -18,6 +18,13 @@ enum AudioSourceKind: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+enum DisplayMode: String, CaseIterable, Identifiable {
+    case waterfall3D = "3D Waterfall"
+    case spectrogram2D = "2D Spectrogram"
+
+    var id: String { rawValue }
+}
+
 @MainActor
 final class AppViewModel: ObservableObject {
     @Published var isRunning = false
@@ -39,9 +46,19 @@ final class AppViewModel: ObservableObject {
         didSet { analyzer.highPassFilterEnabled = highPassFilterEnabled }
     }
     @Published var cameraViewpoint: CameraViewpoint = .standard
+    @Published var displayMode: DisplayMode = .waterfall3D
     @Published private(set) var isRecording = false
 
     @Published private(set) var history: SpectrumHistory
+    // The 2D spectrogram needs far more time resolution than the 3D waterfall's 32-deep
+    // mesh (which would look absurdly long if stretched that far) — a separate, longer
+    // ring buffer keeps the two views' time axes independent.
+    @Published private(set) var spectrogramHistory: SpectrumHistory
+    // 512 (not 1024) — measured ~37ms/frame to build the spectrogram image at this size in
+    // a debug build, comfortably under the ~93ms interval between real spectrum updates.
+    // 1024 measured ~76ms/frame: technically keeps up on average but leaves little margin
+    // before other main-thread work causes visible stutter.
+    private let spectrogramTimeSteps = 512
 
     private let micSource = MicrophoneAudioSource()
     private let fileSource = FileAudioSource()
@@ -59,6 +76,7 @@ final class AppViewModel: ObservableObject {
         // Can't read `self.resolution` before `history` is assigned, so use the same
         // static default directly instead.
         history = SpectrumHistory(timeSteps: 32, binCount: SpectrumResolution.ultra.binCount)
+        spectrogramHistory = SpectrumHistory(timeSteps: spectrogramTimeSteps, binCount: SpectrumResolution.ultra.binCount)
         analyzer.visualBinCount = SpectrumResolution.ultra.binCount
     }
 
@@ -68,6 +86,7 @@ final class AppViewModel: ObservableObject {
     private func applyResolution() {
         analyzer.visualBinCount = resolution.binCount
         history = SpectrumHistory(timeSteps: history.timeSteps, binCount: resolution.binCount)
+        spectrogramHistory = SpectrumHistory(timeSteps: spectrogramTimeSteps, binCount: resolution.binCount)
     }
 
     func start() {
@@ -105,6 +124,7 @@ final class AppViewModel: ObservableObject {
                     MainActor.assumeIsolated {
                         guard let self, let spectrum = self.analyzer.consumeLatest() else { return }
                         self.history.push(spectrum)
+                        self.spectrogramHistory.push(spectrum)
                     }
                 }
             } catch {

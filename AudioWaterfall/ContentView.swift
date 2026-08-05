@@ -13,6 +13,10 @@ struct ContentView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            // Transport controls (source, start/stop, record) get their own row with fixed
+            // sizing so they're never the ones squeezed when the options row below runs out
+            // of horizontal space — that's what was making Start/Record shrink to unreadable
+            // labels before.
             HStack(spacing: 12) {
                 Picker("Source", selection: $viewModel.selectedSource) {
                     ForEach(AudioSourceKind.allCases) { kind in
@@ -22,10 +26,12 @@ struct ContentView: View {
                 .pickerStyle(.segmented)
                 .frame(width: 320)
                 .disabled(viewModel.isRunning)
+                .fixedSize()
 
                 if viewModel.selectedSource == .file {
                     Button("Open File…") { showFileImporter = true }
                         .disabled(viewModel.isRunning)
+                        .fixedSize()
                     if let url = viewModel.selectedFileURL {
                         Text(url.lastPathComponent)
                             .foregroundStyle(.secondary)
@@ -36,51 +42,71 @@ struct ContentView: View {
                 Button(viewModel.isRunning ? "Stop" : "Start") {
                     viewModel.isRunning ? viewModel.stop() : viewModel.start()
                 }
+                .fixedSize()
 
                 Button(viewModel.isRecording ? "Stop Recording" : "● Record") {
                     viewModel.isRecording ? viewModel.stopRecording() : viewModel.startRecording()
                 }
-                .disabled(!viewModel.isRunning)
+                .disabled(!viewModel.isRunning || viewModel.displayMode != .waterfall3D)
                 .foregroundStyle(viewModel.isRecording ? .red : .primary)
-
-                Divider().frame(height: 20)
-
-                Picker("Colormap", selection: $viewModel.colormap) {
-                    ForEach(Colormap.allCases) { map in
-                        Text(map.rawValue).tag(map)
-                    }
-                }
-                .frame(width: 160)
-
-                Picker("Background", selection: $viewModel.backgroundColorOption) {
-                    ForEach(BackgroundColorOption.allCases) { option in
-                        Text(option.rawValue).tag(option)
-                    }
-                }
-                .frame(width: 160)
-
-                Picker("Resolution", selection: $viewModel.resolution) {
-                    ForEach(SpectrumResolution.allCases) { res in
-                        Text(res.label).tag(res)
-                    }
-                }
-                .frame(width: 160)
-
-                Picker("View", selection: $viewModel.cameraViewpoint) {
-                    ForEach(CameraViewpoint.allCases) { viewpoint in
-                        Text(viewpoint.rawValue).tag(viewpoint)
-                    }
-                }
-                .frame(width: 180)
+                .fixedSize()
 
                 if let errorMessage = viewModel.errorMessage {
                     Text(errorMessage)
                         .foregroundStyle(.red)
                         .lineLimit(2)
                 }
-                Spacer()
+                Spacer(minLength: 0)
             }
             .padding(.horizontal, 8)
+            .padding(.top, 8)
+
+            // Display/appearance options on their own row, wrapped in a horizontal scroll
+            // view so a narrow window clips the row itself rather than shrinking any one
+            // picker or button illegibly.
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    Picker("Display", selection: $viewModel.displayMode) {
+                        ForEach(DisplayMode.allCases) { mode in
+                            Text(mode.rawValue).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(width: 220)
+
+                    Divider().frame(height: 20)
+
+                    Picker("Colormap", selection: $viewModel.colormap) {
+                        ForEach(Colormap.allCases) { map in
+                            Text(map.rawValue).tag(map)
+                        }
+                    }
+                    .frame(width: 160)
+
+                    Picker("Background", selection: $viewModel.backgroundColorOption) {
+                        ForEach(BackgroundColorOption.allCases) { option in
+                            Text(option.rawValue).tag(option)
+                        }
+                    }
+                    .frame(width: 160)
+
+                    Picker("Resolution", selection: $viewModel.resolution) {
+                        ForEach(SpectrumResolution.allCases) { res in
+                            Text(res.label).tag(res)
+                        }
+                    }
+                    .frame(width: 160)
+
+                    Picker("View", selection: $viewModel.cameraViewpoint) {
+                        ForEach(CameraViewpoint.allCases) { viewpoint in
+                            Text(viewpoint.rawValue).tag(viewpoint)
+                        }
+                    }
+                    .frame(width: 180)
+                    .disabled(viewModel.displayMode == .spectrogram2D)
+                }
+                .padding(.horizontal, 8)
+            }
             .padding(.top, 8)
 
             HStack(spacing: 16) {
@@ -91,13 +117,24 @@ struct ContentView: View {
             }
             .padding(8)
 
-            WaterfallSceneView(
-                history: viewModel.history,
-                colormap: viewModel.colormap,
-                backgroundColorOption: viewModel.backgroundColorOption,
-                cameraViewpoint: viewModel.cameraViewpoint,
-                onCreateView: { view in viewModel.sceneView = view }
-            )
+            Group {
+                switch viewModel.displayMode {
+                case .waterfall3D:
+                    WaterfallSceneView(
+                        history: viewModel.history,
+                        colormap: viewModel.colormap,
+                        backgroundColorOption: viewModel.backgroundColorOption,
+                        cameraViewpoint: viewModel.cameraViewpoint,
+                        onCreateView: { view in viewModel.sceneView = view }
+                    )
+                case .spectrogram2D:
+                    SpectrogramView(
+                        history: viewModel.spectrogramHistory,
+                        colormap: viewModel.colormap,
+                        backgroundColorOption: viewModel.backgroundColorOption
+                    )
+                }
+            }
             .id(viewModel.resolution)
             .overlay(alignment: .topLeading) {
                 optionsOverlay
@@ -118,6 +155,7 @@ struct ContentView: View {
     /// view itself so it stays visible regardless of which toolbar row is scrolled/hidden.
     private var optionsOverlay: some View {
         VStack(alignment: .leading, spacing: 2) {
+            Text("Display: \(viewModel.displayMode.rawValue)")
             Text("Source: \(viewModel.selectedSource.rawValue)")
             Text("Colormap: \(viewModel.colormap.rawValue)")
             Text("Background: \(viewModel.backgroundColorOption.rawValue)")
