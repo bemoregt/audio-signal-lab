@@ -22,15 +22,13 @@ final class AppViewModel: ObservableObject {
     @Published var backgroundColorOption: BackgroundColorOption = .black
     @Published var selectedSource: AudioSourceKind = .microphone
     @Published var selectedFileURL: URL?
-    @Published var resolution: SpectrumResolution = .high {
+    @Published var resolution: SpectrumResolution = .veryHigh {
         didSet { applyResolution() }
-    }
-    @Published var lowFrequencyFilteringEnabled = true {
-        didSet { analyzer.smoothingEnabled = lowFrequencyFilteringEnabled }
     }
     @Published var logScaleEnabled = true {
         didSet { analyzer.logScaleEnabled = logScaleEnabled }
     }
+    @Published var cameraViewpoint: CameraViewpoint = .standard
 
     @Published private(set) var history: SpectrumHistory
 
@@ -44,8 +42,8 @@ final class AppViewModel: ObservableObject {
     init() {
         // Can't read `self.resolution` before `history` is assigned, so use the same
         // static default directly instead.
-        history = SpectrumHistory(timeSteps: 32, binCount: SpectrumResolution.high.binCount)
-        analyzer.visualBinCount = SpectrumResolution.high.binCount
+        history = SpectrumHistory(timeSteps: 32, binCount: SpectrumResolution.veryHigh.binCount)
+        analyzer.visualBinCount = SpectrumResolution.veryHigh.binCount
     }
 
     /// Resolution changes swap in a fresh SpectrumHistory (its row size is fixed at

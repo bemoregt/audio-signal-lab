@@ -16,14 +16,8 @@ final class SpectrumAnalyzer {
         set { lock.lock(); _visualBinCount = newValue; lock.unlock() }
     }
 
-    // User-toggleable via checkboxes in the UI; same cross-thread access pattern as
+    // User-toggleable via a checkbox in the UI; same cross-thread access pattern as
     // visualBinCount above.
-    private var _smoothingEnabled = true
-    var smoothingEnabled: Bool {
-        get { lock.lock(); defer { lock.unlock() }; return _smoothingEnabled }
-        set { lock.lock(); _smoothingEnabled = newValue; lock.unlock() }
-    }
-
     private var _logScaleEnabled = true
     var logScaleEnabled: Bool {
         get { lock.lock(); defer { lock.unlock() }; return _logScaleEnabled }
@@ -129,7 +123,6 @@ final class SpectrumAnalyzer {
         let floorDB = runningCeilingDB - dynamicRangeDB
 
         let logScaleEnabled = self.logScaleEnabled
-        let smoothingEnabled = self.smoothingEnabled
 
         var normalized = [Float](repeating: 0, count: fftSize / 2)
         for i in 0..<dB.count {
@@ -141,10 +134,9 @@ final class SpectrumAnalyzer {
         }
 
         let downsampled = downsample(normalized)
-        let binned = smoothingEnabled ? smooth(downsampled) : downsampled
 
         lock.lock()
-        latestSpectrum = binned
+        latestSpectrum = downsampled
         lock.unlock()
     }
 
@@ -165,25 +157,6 @@ final class SpectrumAnalyzer {
             var sum: Float = 0
             for i in start..<end { sum += bins[i] }
             result[outIdx] = sum / Float(end - start)
-        }
-        return result
-    }
-
-    /// Simple moving-average low-pass filter across the frequency axis, smoothing out
-    /// bin-to-bin jaggedness in the displayed curve.
-    private func smooth(_ values: [Float]) -> [Float] {
-        let radius = 2
-        var result = [Float](repeating: 0, count: values.count)
-        for i in 0..<values.count {
-            var sum: Float = 0
-            var count: Float = 0
-            for offset in -radius...radius {
-                let idx = i + offset
-                guard idx >= 0 && idx < values.count else { continue }
-                sum += values[idx]
-                count += 1
-            }
-            result[i] = sum / count
         }
         return result
     }

@@ -15,12 +15,14 @@ Swift + SwiftUI + SceneKit + Accelerate(vDSP)로 작성되었으며, Apple Silic
   - 오디오 파일 재생 분석 (파일을 직접 재생하면서 동시에 시각화)
   - 시스템 오디오 캡처 (ScreenCaptureKit 기반 — 다른 앱이 재생 중인 소리를 그대로 분석)
 - **3D 와이어프레임 워터폴 렌더링** (SceneKit)
-  - 마우스 드래그로 카메라 자유 회전
+  - 마우스 드래그로 카메라 자유 회전, 스크롤로 확대/축소
   - 주파수축 방향 선(가로선)만 표시하는 amesh 스타일의 클래식 룩
+  - 앞쪽(최신) 그래프가 뒤쪽(과거) 그래프를 가리는 입체적인 산맥 형태
+- **View 콤보박스로 카메라 시점 선택**: Default, Cinematic, Close-Up, Top-Down, Side Profile, Low Angle, Wide Overview — 7가지 프리셋 (거리/줌 포함)
 - **5가지 슈도컬러 컬러맵**: Turbo, Grayscale, Purple(Plasma 스타일), Fire(Inferno 스타일), Viridis
 - **배경색 선택**: 검정 / 진보라 / 백색 / 진녹색 / 암적색
 - **스펙트럼 해상도 선택**: Low(32) ~ Ultra(512) 빈(bin) 개수 중 선택
-- **로그 스케일 / 저주파(스무딩) 필터** 켜고 끄기
+- **로그 스케일** 켜고 끄기
 - **자동 게인(AGC)**: 입력 소스의 절대적인 음량 차이와 무관하게 색상·높이 범위가 자동으로 맞춰짐
 
 ## 요구 사항
@@ -49,10 +51,11 @@ xcodebuild -project AudioWaterfall.xcodeproj -scheme AudioWaterfall build
 | `AudioSource.swift` | 오디오 입력 소스 공통 프로토콜 |
 | `MicrophoneAudioSource.swift` / `FileAudioSource.swift` / `SystemAudioSource.swift` | 각 입력 소스 구현체 |
 | `AudioFormatConverter.swift` | 서로 다른 입력 포맷을 표준 포맷(모노 Float32 44.1kHz)으로 변환 |
-| `SpectrumAnalyzer.swift` | vDSP 기반 FFT 파이프라인 (윈도잉, FFT, dB 변환, 로그스케일, 스무딩, 다운샘플링) |
+| `SpectrumAnalyzer.swift` | vDSP 기반 FFT 파이프라인 (윈도잉, FFT, dB 변환, 로그스케일, 다운샘플링) |
 | `SpectrumHistory.swift` | 시간축 스펙트럼 이력을 담는 링 버퍼 |
 | `Colormap.swift` | 진폭 → RGB 슈도컬러 매핑 |
-| `WaterfallSceneView.swift` | SceneKit 기반 3D 와이어프레임 메시 렌더링 |
+| `WaterfallSceneView.swift` | SceneKit 기반 3D 와이어프레임 메시 렌더링, 마우스 조작(회전/줌) |
+| `CameraViewpoint.swift` | View 콤보박스용 카메라 시점 프리셋(yaw/pitch/거리) 7종 |
 | `AppViewModel.swift` | 오디오 소스 전환, 상태 관리, UI와 분석 파이프라인 연결 |
 | `ContentView.swift` | SwiftUI 툴바 및 메인 화면 |
 

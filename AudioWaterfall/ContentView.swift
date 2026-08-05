@@ -60,6 +60,13 @@ struct ContentView: View {
                 }
                 .frame(width: 160)
 
+                Picker("View", selection: $viewModel.cameraViewpoint) {
+                    ForEach(CameraViewpoint.allCases) { viewpoint in
+                        Text(viewpoint.rawValue).tag(viewpoint)
+                    }
+                }
+                .frame(width: 180)
+
                 if let errorMessage = viewModel.errorMessage {
                     Text(errorMessage)
                         .foregroundStyle(.red)
@@ -71,13 +78,12 @@ struct ContentView: View {
             .padding(.top, 8)
 
             HStack(spacing: 16) {
-                Toggle("Low-Frequency Filtering", isOn: $viewModel.lowFrequencyFilteringEnabled)
                 Toggle("Log Scale", isOn: $viewModel.logScaleEnabled)
                 Spacer()
             }
             .padding(8)
 
-            WaterfallSceneView(history: viewModel.history, colormap: viewModel.colormap, backgroundColorOption: viewModel.backgroundColorOption)
+            WaterfallSceneView(history: viewModel.history, colormap: viewModel.colormap, backgroundColorOption: viewModel.backgroundColorOption, cameraViewpoint: viewModel.cameraViewpoint)
                 .id(viewModel.resolution)
         }
         .frame(minWidth: 760, minHeight: 500)
