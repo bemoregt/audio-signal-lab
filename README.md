@@ -4,6 +4,10 @@ SGI IRIX의 클래식 데모 **amesh**에서 영감을 받은 macOS용 실시간
 
 Swift + SwiftUI + SceneKit + Accelerate(vDSP)로 작성되었으며, Apple Silicon Mac(M1 등)에서 동작합니다.
 
+## 스크린샷
+
+![AudioWaterfall 실행 화면](ScrShot%2026.png)
+
 ## 주요 기능
 
 - **3가지 오디오 입력 소스**
